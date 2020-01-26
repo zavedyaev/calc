@@ -64,104 +64,134 @@ fun extractOperandId(operandReplacement: String) = operandReplacement.replace(RE
 private val operandRegex = Regex("$REPLACED_OPERAND_MARK\\d+$REPLACED_OPERAND_MARK") // ~~123~~
 
 enum class Operator(
-    val priorityGroup: Int,
-    val calculate: (List<Operand>) -> Double,
     private val regex: Regex,
     /**
      * in case you have 2 operands, you will see something like [[2,3][5,6]]
      * which means first operand could be found in group 2 or 3, second operand could be found group 5 or 6
      */
     private val operandsGroupIds: List<List<Int>>,
-    private val fullMatchGroupId: Int = 1
+    val calculate: (List<Operand>) -> Double
 ) {
     FACTORIAL(
-        5, { operands ->
+        Regex("(($doubleNumberRegex)!|($operandRegex)!)"),
+        listOf(listOf(3, 4, 5, 6)),
+        { operands ->
             if (operands.size != 1) Double.NaN
             else factorial(operands.first().getValue())
-        }, Regex("(($doubleNumberRegex)!|($operandRegex)!)"),
-        listOf(listOf(3, 4, 5, 6))
+        }
     ),
     POWER(
-        5, { operands ->
+        Regex("((($doubleNumberRegex)|($operandRegex))\\^(($doubleNumberRegex)|($operandRegex)))"),
+        listOf(listOf(4, 5, 6, 7), listOf(10, 11, 12, 13)),
+        { operands ->
             if (operands.size != 2) Double.NaN
             else PlatformSpecificMethods.power(operands.first().getValue(), operands.last().getValue())
-        }, Regex("((($doubleNumberRegex)|($operandRegex))\\^(($doubleNumberRegex)|($operandRegex)))"),
-        listOf(listOf(4, 5, 6, 7), listOf(10, 11, 12, 13))
+        }
     ),
-    //todo sin cos tn tan combinations
-    SQUARE_ROOT(5, { operands ->
-        if (operands.size != 1) Double.NaN
-        else sqrt(operands.first().getValue())
-    }, Regex("(v(($doubleNumberRegex)|($operandRegex)))"), listOf(listOf(4, 5, 6, 7))),
-    LOGARITHM_BASE_10(4, { operands ->
-        if (operands.size != 1) Double.NaN
-        else log10(operands.first().getValue())
-    }, Regex("(log(($doubleNumberRegex)|($operandRegex)))"), listOf(listOf(4, 5, 6, 7))),
-    LOGARITHM_BASE_E(4, { operands ->
-        if (operands.size != 1) Double.NaN
-        else ln(operands.first().getValue())
-    }, Regex("(ln(($doubleNumberRegex)|($operandRegex)))"), listOf(listOf(4, 5, 6, 7))),
-    SINUS(4, { operands ->
-        if (operands.size != 1) Double.NaN
-        else sin(operands.first().getValue())
-    }, Regex("(sin(($doubleNumberRegex)|($operandRegex)))"), listOf(listOf(4, 5, 6, 7))),
-    COSINUS(4, { operands ->
-        if (operands.size != 1) Double.NaN
-        else kotlin.math.cos(operands.first().getValue())
-    }, Regex("(cos(($doubleNumberRegex)|($operandRegex)))"), listOf(listOf(4, 5, 6, 7))),
-    TANGENT(4, { operands ->
-        if (operands.size != 1) Double.NaN
-        else kotlin.math.tan(operands.first().getValue())
-    }, Regex("((tg|tan)(($doubleNumberRegex)|($operandRegex)))"), listOf(listOf(5, 6, 7, 8))),
+    SQUARE_ROOT(
+        Regex("(v(($doubleNumberRegex)|($operandRegex)))"),
+        listOf(listOf(4, 5, 6, 7)),
+        { operands ->
+            if (operands.size != 1) Double.NaN
+            else sqrt(operands.first().getValue())
+        }
+    ),
+    LOGARITHM_BASE_10(
+        Regex("(log(($doubleNumberRegex)|($operandRegex)))"),
+        listOf(listOf(4, 5, 6, 7)),
+        { operands ->
+            if (operands.size != 1) Double.NaN
+            else log10(operands.first().getValue())
+        }
+    ),
+    LOGARITHM_BASE_E(
+        Regex("(ln(($doubleNumberRegex)|($operandRegex)))"),
+        listOf(listOf(4, 5, 6, 7)),
+        { operands ->
+            if (operands.size != 1) Double.NaN
+            else ln(operands.first().getValue())
+        }
+    ),
+    SINUS(
+        Regex("(sin(($doubleNumberRegex)|($operandRegex)))"),
+        listOf(listOf(4, 5, 6, 7)),
+        { operands ->
+            if (operands.size != 1) Double.NaN
+            else sin(operands.first().getValue())
+        }
+    ),
+    COSINUS(
+        Regex("(cos(($doubleNumberRegex)|($operandRegex)))"),
+        listOf(listOf(4, 5, 6, 7)),
+        { operands ->
+            if (operands.size != 1) Double.NaN
+            else cos(operands.first().getValue())
+        }
+    ),
+    TANGENT(
+        Regex("((tg|tan)(($doubleNumberRegex)|($operandRegex)))"),
+        listOf(listOf(5, 6, 7, 8)),
+        { operands ->
+            if (operands.size != 1) Double.NaN
+            else tan(operands.first().getValue())
+        }
+    ),
     MULTIPLY(
-        3, { operands ->
-            if (operands.size != 2) Double.NaN
-            else operands.first().getValue() * operands.last().getValue()
-        }, Regex("((($doubleNumberRegex)|($operandRegex))[*x](($doubleNumberRegex)|($operandRegex)))"),
-        listOf(listOf(4, 5, 6, 7), listOf(10, 11, 12, 13))
-    ),
-    MULTIPLY_WITHOUT_SIGN(
-        3,
-
+        Regex("((($doubleNumberRegex)|($operandRegex))[*x](($doubleNumberRegex)|($operandRegex)))"),
+        listOf(listOf(4, 5, 6, 7), listOf(10, 11, 12, 13)),
         { operands ->
             if (operands.size != 2) Double.NaN
             else operands.first().getValue() * operands.last().getValue()
-        },
+        }
+    ),
+    MULTIPLY_WITHOUT_SIGN(
         Regex("((($doubleNumberRegex)($operandRegex))|(($operandRegex)($doubleNumberRegex))|(($operandRegex)($operandRegex)))"),
-        listOf(listOf(4, 5, 6, 9, 15), listOf(7, 11, 12, 13, 16))
+        listOf(listOf(4, 5, 6, 9, 15), listOf(7, 11, 12, 13, 16)),
+        { operands ->
+            if (operands.size != 2) Double.NaN
+            else operands.first().getValue() * operands.last().getValue()
+        }
     ),
     DIVIDE(
-        3, { operands ->
+        Regex("((($doubleNumberRegex)|($operandRegex))/(($doubleNumberRegex)|($operandRegex)))"),
+        listOf(listOf(4, 5, 6, 7), listOf(10, 11, 12, 13)),
+        { operands ->
             if (operands.size != 2) Double.NaN
             else operands.first().getValue() / operands.last().getValue()
-        }, Regex("((($doubleNumberRegex)|($operandRegex))/(($doubleNumberRegex)|($operandRegex)))"),
-        listOf(listOf(4, 5, 6, 7), listOf(10, 11, 12, 13))
+        }
     ),
     INVERSE(
-        2, { operands ->
+        Regex("(^-(($doubleNumberRegex)|($operandRegex)))"),
+        listOf(listOf(4, 5, 6, 7)),
+        { operands ->
             if (operands.size != 1) Double.NaN
             else (0.0 - operands.first().getValue())
-        }, Regex("(^-(($doubleNumberRegex)|($operandRegex)))"),
-        listOf(listOf(4, 5, 6, 7))
+        }
     ),
     MINUS(
-        2, { operands ->
+        Regex("((($doubleNumberRegex)|($operandRegex))-(($doubleNumberRegex)|($operandRegex)))"),
+        listOf(listOf(4, 5, 6, 7), listOf(10, 11, 12, 13)),
+        { operands ->
             if (operands.size != 2) Double.NaN
             else operands.first().getValue() - operands.last().getValue()
-        }, Regex("((($doubleNumberRegex)|($operandRegex))-(($doubleNumberRegex)|($operandRegex)))"),
-        listOf(listOf(4, 5, 6, 7), listOf(10, 11, 12, 13))
+        }
     ),
     PLUS(
-        2, { operands ->
+        Regex("((($doubleNumberRegex)|($operandRegex))\\+(($doubleNumberRegex)|($operandRegex)))"),
+        listOf(listOf(4, 5, 6, 7), listOf(10, 11, 12, 13)),
+        { operands ->
             if (operands.size != 2) Double.NaN
             else operands.first().getValue() + operands.last().getValue()
-        }, Regex("((($doubleNumberRegex)|($operandRegex))\\+(($doubleNumberRegex)|($operandRegex)))"),
-        listOf(listOf(4, 5, 6, 7), listOf(10, 11, 12, 13))
+        }
     ),
-    NUMBER_FALLBACK(1, { operands ->
-        if (operands.size != 1) Double.NaN
-        else operands.first().getValue()
-    }, Regex("(($doubleNumberRegex)|($operandRegex))"), listOf(listOf(3, 4, 5, 6)));
+    NUMBER_FALLBACK(
+        Regex("(($doubleNumberRegex)|($operandRegex))"),
+        listOf(listOf(3, 4, 5, 6)),
+        { operands ->
+            if (operands.size != 1) Double.NaN
+            else operands.first().getValue()
+        }
+    );
 
 
     fun findMatch(string: String): OperatorMatch {
@@ -173,12 +203,32 @@ enum class Operator(
             val operandGroup = operandGroupIds.asSequence().map { id -> groups[id] }.filterNotNull().first()
             operandGroup.value
         }
+        val fullMatchGroupId = 1
         val matchGroup = groups[fullMatchGroupId]!!
 
         return OperatorMatch(matchGroup.value, operandsStrings)
     }
+}
+
+@Suppress("unused")
+enum class OperatorsGroup(val priority: Int, val operators: List<Operator>, val repeatParsing: Boolean = false) {
+    FACTORIAL_POWER_SQUARE_ROOT(5, listOf(Operator.FACTORIAL, Operator.POWER, Operator.SQUARE_ROOT)),
+    LOG_LN_SIN_COS_TAN(
+        4,
+        listOf(
+            Operator.LOGARITHM_BASE_10,
+            Operator.LOGARITHM_BASE_E,
+            Operator.SINUS,
+            Operator.COSINUS,
+            Operator.TANGENT
+        ),
+        true
+    ),
+    MULTIPLY_DIVIDE(3, listOf(Operator.MULTIPLY, Operator.MULTIPLY_WITHOUT_SIGN, Operator.DIVIDE)),
+    MINUS_PLUS(2, listOf(Operator.INVERSE, Operator.MINUS, Operator.PLUS)),
+    FALLBACK(1, listOf(Operator.NUMBER_FALLBACK));
 
     companion object {
-        val orderedByPriority = values().sortedByDescending { it.priorityGroup }
+        val orderedByPriority = values().sortedByDescending { it.priority }
     }
 }

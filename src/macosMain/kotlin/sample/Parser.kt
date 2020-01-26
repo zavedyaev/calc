@@ -86,40 +86,52 @@ object Parser {
         var remainedString: String = input
         println("remainedString: $remainedString")
 
-        Operator.orderedByPriority.forEach { operator: Operator ->
-            println("check operator: $operator")
-            var match = operator.findMatch(remainedString)
-            while (match.found) {
-                val operandsStrings = match.operandsStrings
-                val operands = operandsStrings.map { operandStr: String ->
-                    val numOrNull = operandStr.toDoubleOrNull()
-                    if (numOrNull != null) {
-                        NumberOperand(numOrNull)
-                    } else {
-                        println("operandStr: $operandStr")
-                        val operandId = operandStr.replace(REPLACED_OPERAND_MARK, "").toInt()
-                        operandsById.getValue(operandId)
+        OperatorsGroup.orderedByPriority.forEach { operatorsGroup ->
+            /**
+             * for operator groups like sin, cos, etc we need to repeat group parsing to parse the following cases:
+             * cos sin cos log pi
+             */
+            do {
+                var groupMatched = false
+                operatorsGroup.operators.forEach { operator ->
+                    println("check operator: $operator")
+                    var match = operator.findMatch(remainedString)
+                    while (match.found) {
+                        groupMatched = true
+
+                        val operandsStrings = match.operandsStrings
+                        val operands = operandsStrings.map { operandStr: String ->
+                            val numOrNull = operandStr.toDoubleOrNull()
+                            if (numOrNull != null) {
+                                NumberOperand(numOrNull)
+                            } else {
+                                println("operandStr: $operandStr")
+                                val operandId = operandStr.replace(REPLACED_OPERAND_MARK, "").toInt()
+                                operandsById.getValue(operandId)
+                            }
+                        }
+
+                        val newOperand = OperationOperand(
+                            Operation(
+                                operator,
+                                operands
+                            )
+                        )
+
+                        val index = nextIndex(operandsById)
+                        val operandReplacement = generateOperandReplacement(index)
+                        operandsById[index] = newOperand
+
+                        remainedString = remainedString.replace(match.fullMatch, operandReplacement)
+                        println("remainedString: $remainedString")
+                        match = operator.findMatch(remainedString)
+
+                        if (operator == Operator.NUMBER_FALLBACK) break //leave infinite circle
                     }
                 }
-
-                val newOperand = OperationOperand(
-                    Operation(
-                        operator,
-                        operands
-                    )
-                )
-
-                val index = nextIndex(operandsById)
-                val operandReplacement = generateOperandReplacement(index)
-                operandsById[index] = newOperand
-
-                remainedString = remainedString.replace(match.fullMatch, operandReplacement)
-                println("remainedString: $remainedString")
-                match = operator.findMatch(remainedString)
-
-                if (operator == Operator.NUMBER_FALLBACK) break //leave infinite circle
-            }
+            } while (operatorsGroup.repeatParsing && groupMatched)
         }
+
         println("remainedString: $remainedString")
 
         //at this moment we should see something like ~~123~~
