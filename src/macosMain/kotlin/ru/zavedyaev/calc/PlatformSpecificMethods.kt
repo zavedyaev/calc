@@ -1,4 +1,4 @@
-package sample
+package ru.zavedyaev.calc
 
 import platform.posix.pow
 

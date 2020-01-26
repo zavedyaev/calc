@@ -1,16 +1,14 @@
-package sample
+package ru.zavedyaev.calc
 
 object Parser {
     fun parseAndCalc(input: String): Double {
         val withoutSpaces = input.replace(" ", "").replace("_", "").replace(",", "").toLowerCase()
         if (!bracketsCountIsRight(withoutSpaces)) return Double.NaN
 
-        println("withoutSpaces: $withoutSpaces")
         val operandById = HashMap<Int, Operand>()
 
-        val withConstantsReplaced = replaceConstants(withoutSpaces, operandById)
-        println("withConstantsReplaced: $withConstantsReplaced")
-
+        val withConstantsReplaced =
+            replaceConstants(withoutSpaces, operandById)
 
         /**
          * find the deepest brackets parse into operand and replace it in the string. For example:
@@ -25,17 +23,17 @@ object Parser {
 
         var operandResult: Operand? = null
         var remainedStr = withConstantsReplaced
-        var deepestBrackets: DeepestBrackets? = findDeepestBrackets(remainedStr)
-
-        println("remainedStr: $remainedStr , deepestBraces: $deepestBrackets")
+        var deepestBrackets: DeepestBrackets? =
+            findDeepestBrackets(remainedStr)
 
         while (deepestBrackets != null) {
-            val withoutBrackets = substringWithoutBrackets(remainedStr, deepestBrackets)
+            val withoutBrackets =
+                substringWithoutBrackets(remainedStr, deepestBrackets)
 
-            val parsed = parseStringWithoutBrackets(withoutBrackets, operandById)
+            val parsed =
+                parseStringWithoutBrackets(withoutBrackets, operandById)
 
             if (deepestBrackets.index == 0 && remainedStr.length == deepestBrackets.length) {
-                println("exit braces while")
                 //this is the last operation
                 operandResult = parsed
                 deepestBrackets = null
@@ -52,12 +50,8 @@ object Parser {
 
                 remainedStr = firstPart + generateOperandReplacement(index) + lastPart
                 deepestBrackets = findDeepestBrackets(remainedStr)
-
-                println("remainedStr: $remainedStr , deepestBraces: $deepestBrackets")
             }
         }
-
-        println("operandResult: $operandResult")
         return operandResult?.getValue() ?: Double.NaN
     }
 
@@ -73,7 +67,10 @@ object Parser {
                 val index = nextIndex(operandById)
                 operandById[index] = constant.operand
                 withConstantsReplaced =
-                    withConstantsReplaced.replace(constant.label, generateOperandReplacement(index))
+                    withConstantsReplaced.replace(
+                        constant.label,
+                        generateOperandReplacement(index)
+                    )
             }
         }
 
@@ -81,10 +78,7 @@ object Parser {
     }
 
     private fun parseStringWithoutBrackets(input: String, operandsById: HashMap<Int, Operand>): Operand {
-        println("parse: strWithoutBraces: $input , operandsById: $operandsById")
-
         var remainedString: String = input
-        println("remainedString: $remainedString")
 
         OperatorsGroup.orderedByPriority.forEach { operatorsGroup ->
             /**
@@ -94,7 +88,6 @@ object Parser {
             do {
                 var groupMatched = false
                 operatorsGroup.operators.forEach { operator ->
-                    println("check operator: $operator")
                     var match = operator.findMatch(remainedString)
                     while (match.found) {
                         groupMatched = true
@@ -105,7 +98,6 @@ object Parser {
                             if (numOrNull != null) {
                                 NumberOperand(numOrNull)
                             } else {
-                                println("operandStr: $operandStr")
                                 val operandId = operandStr.replace(REPLACED_OPERAND_MARK, "").toInt()
                                 operandsById.getValue(operandId)
                             }
@@ -123,7 +115,6 @@ object Parser {
                         operandsById[index] = newOperand
 
                         remainedString = remainedString.replace(match.fullMatch, operandReplacement)
-                        println("remainedString: $remainedString")
                         match = operator.findMatch(remainedString)
 
                         if (operator == Operator.NUMBER_FALLBACK) break //leave infinite circle
@@ -131,8 +122,6 @@ object Parser {
                 }
             } while (operatorsGroup.repeatParsing && groupMatched)
         }
-
-        println("remainedString: $remainedString")
 
         //at this moment we should see something like ~~123~~
         val operandId = extractOperandId(remainedString)

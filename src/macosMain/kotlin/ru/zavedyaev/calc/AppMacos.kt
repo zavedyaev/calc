@@ -1,8 +1,6 @@
-package sample
+package ru.zavedyaev.calc
 
 fun main(args: Array<String>) {
-    println("args: ${args.toList()}")
-
     if (args.size != 1) {
         printHelp()
         return

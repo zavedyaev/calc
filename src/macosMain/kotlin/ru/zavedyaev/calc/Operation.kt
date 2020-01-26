@@ -1,4 +1,4 @@
-package sample
+package ru.zavedyaev.calc
 
 import kotlin.math.*
 
@@ -85,7 +85,10 @@ enum class Operator(
         listOf(listOf(4, 5, 6, 7), listOf(10, 11, 12, 13)),
         { operands ->
             if (operands.size != 2) Double.NaN
-            else PlatformSpecificMethods.power(operands.first().getValue(), operands.last().getValue())
+            else PlatformSpecificMethods.power(
+                operands.first().getValue(),
+                operands.last().getValue()
+            )
         }
     ),
     SQUARE_ROOT(
@@ -212,7 +215,13 @@ enum class Operator(
 
 @Suppress("unused")
 enum class OperatorsGroup(val priority: Int, val operators: List<Operator>, val repeatParsing: Boolean = false) {
-    FACTORIAL_POWER_SQUARE_ROOT(5, listOf(Operator.FACTORIAL, Operator.POWER, Operator.SQUARE_ROOT)),
+    FACTORIAL_POWER_SQUARE_ROOT(
+        5, listOf(
+            Operator.FACTORIAL,
+            Operator.POWER,
+            Operator.SQUARE_ROOT
+        )
+    ),
     LOG_LN_SIN_COS_TAN(
         4,
         listOf(
@@ -224,8 +233,20 @@ enum class OperatorsGroup(val priority: Int, val operators: List<Operator>, val 
         ),
         true
     ),
-    MULTIPLY_DIVIDE(3, listOf(Operator.MULTIPLY, Operator.MULTIPLY_WITHOUT_SIGN, Operator.DIVIDE)),
-    MINUS_PLUS(2, listOf(Operator.INVERSE, Operator.MINUS, Operator.PLUS)),
+    MULTIPLY_DIVIDE(
+        3, listOf(
+            Operator.MULTIPLY,
+            Operator.MULTIPLY_WITHOUT_SIGN,
+            Operator.DIVIDE
+        )
+    ),
+    MINUS_PLUS(
+        2, listOf(
+            Operator.INVERSE,
+            Operator.MINUS,
+            Operator.PLUS
+        )
+    ),
     FALLBACK(1, listOf(Operator.NUMBER_FALLBACK));
 
     companion object {
