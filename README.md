@@ -8,13 +8,16 @@ calc "5.4 * 3,000.02 - 5*2 + 3! - (4+5) + sin 0 - cos PI"
 ## Compilation
 ### MacOS
 Make sure you have java and xcode installed.
-todo
+Run the following command in terminal `./gradlew :macosBinaries`
+After compilation you will find your executable in `/build/bin/macos/releaseExecutable`
 
 ## Installation
 Make sure your executable is reachable in PATH. 
 In case it is not you have 2 choices:
 * You can move it to some of the directories from PATH (for example `/usr/local/bin/`)
 * You can add the folder where executable is located to your PATH
+
+> feel free to rename executable to make it more convenient for you
 
 ## Applicable operators
 This app can process the following operators (ordered by priority):
