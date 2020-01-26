@@ -1,7 +1,6 @@
 package sample
 
-import platform.posix.pow
-import kotlin.math.sqrt
+import kotlin.math.*
 
 data class Operation(
     val operator: Operator,
@@ -10,13 +9,41 @@ data class Operation(
     fun calculateResult(): Double = operator.calculate(operands)
 }
 
-private const val eps = 0.00001
-private fun factorial(num: Double): Double  {
-    val minusOne = num - 1.0
-    if (minusOne < eps) return 1.0
-    return num * factorial(minusOne)
+interface Operand {
+    fun getValue(): Double
+}
 
-        //todo replace by a real code
+data class NumberOperand(
+    val number: Double
+) : Operand {
+    override fun getValue() = number
+}
+
+data class OperationOperand(
+    val operation: Operation
+) : Operand {
+    override fun getValue() = operation.calculateResult()
+}
+
+enum class Constant(val label: String, val operand: Operand) {
+    PI("pi", NumberOperand(kotlin.math.PI)),
+    E("e", NumberOperand(kotlin.math.E))
+}
+
+//todo replace by a real factorial for float numbers
+private fun factorial(num: Double): Double {
+    return try {
+        val result = integerFactorial(num.roundToLong())
+        result.toDouble()
+    } catch (th: Throwable) {
+        Double.NaN
+    }
+}
+
+private fun integerFactorial(num: Long): Long {
+    val minusOne = num - 1
+    return if (minusOne <= 0) 1
+    else num * integerFactorial(minusOne)
 }
 
 data class OperatorMatch(
@@ -30,300 +57,128 @@ data class OperatorMatch(
 }
 
 
-//todo float numbers
+private val doubleNumberRegex = Regex("(\\d+\\.\\d+)|(\\.\\d+)|(\\d+)") // 1.1 or .1 or 1
+const val REPLACED_OPERAND_MARK = "~~"
+fun generateOperandReplacement(id: Int) = "$REPLACED_OPERAND_MARK$id$REPLACED_OPERAND_MARK"
+fun extractOperandId(operandReplacement: String) = operandReplacement.replace(REPLACED_OPERAND_MARK, "").toInt()
+private val operandRegex = Regex("$REPLACED_OPERAND_MARK\\d+$REPLACED_OPERAND_MARK") // ~~123~~
+
 enum class Operator(
     val priorityGroup: Int,
-    val operandsCount: Int,
-    val labels: Set<String>,
     val calculate: (List<Operand>) -> Double,
-    val findMatch: (String) -> OperatorMatch
+    private val regex: Regex,
+    /**
+     * in case you have 2 operands, you will see something like [[2,3][5,6]]
+     * which means first operand could be found in group 2 or 3, second operand could be found group 5 or 6
+     */
+    private val operandsGroupIds: List<List<Int>>,
+    private val fullMatchGroupId: Int = 1
 ) {
-    FACTORIAL(5, 1, setOf("!"), { operands ->
-        if (operands.size != 1) Double.NaN
-        else factorial(operands.first().getValue())
-    }, { string ->
-        val pattern = "((\\d+)!|(~~\\d+~~)!)".toRegex()
-        val matchResult = pattern.find(string)
-        if(matchResult == null) OperatorMatch.notFound()
-        else {
-            val groups = matchResult.groups
-            val operandGroup = (groups[2] ?: groups[3])!!
-            val operandStr = operandGroup.value
-
-            val matchGroup = groups[1]!!
-            val matchStr = matchGroup.value
-
-            OperatorMatch(matchStr, listOf(operandStr))
-        }
-    }),
-    POWER(5, 2, setOf("^"), { operands ->
-        if (operands.size != 2) Double.NaN
-        else pow(operands.first().getValue(), operands.last().getValue())
-    }, { string ->
-        val pattern = "(((\\d+)|(~~\\d+~~))\\^((\\d+)|(~~\\d+~~)))".toRegex()
-        val matchResult = pattern.find(string)
-        if(matchResult == null) OperatorMatch.notFound()
-        else {
-            val groups = matchResult.groups
-            val operandGroup1 = (groups[2] ?: groups[3] ?: groups[4])!!
-            val operand1Str = operandGroup1.value
-
-            val operandGroup2 = (groups[5] ?: groups[6] ?: groups[7])!!
-            val operand2Str = operandGroup2.value
-
-            val matchGroup = groups[1]!!
-            val matchStr = matchGroup.value
-
-            OperatorMatch(matchStr, listOf(operand1Str, operand2Str))
-        }
-    }),
+    FACTORIAL(
+        5, { operands ->
+            if (operands.size != 1) Double.NaN
+            else factorial(operands.first().getValue())
+        }, Regex("(($doubleNumberRegex)!|($operandRegex)!)"),
+        listOf(listOf(3, 4, 5, 6))
+    ),
+    POWER(
+        5, { operands ->
+            if (operands.size != 2) Double.NaN
+            else PlatformSpecificMethods.power(operands.first().getValue(), operands.last().getValue())
+        }, Regex("((($doubleNumberRegex)|($operandRegex))\\^(($doubleNumberRegex)|($operandRegex)))"),
+        listOf(listOf(4, 5, 6, 7), listOf(10, 11, 12, 13))
+    ),
     //todo sin cos tn tan combinations
-    SQUARE_ROOT(5, 1, setOf("v"),{ operands ->
+    SQUARE_ROOT(5, { operands ->
         if (operands.size != 1) Double.NaN
         else sqrt(operands.first().getValue())
-    }, { string ->
-        val pattern = "(v((\\d+)|(~~\\d+~~)))".toRegex()
-        val matchResult = pattern.find(string)
-        if(matchResult == null) OperatorMatch.notFound()
-        else {
-            val groups = matchResult.groups
-            val operandGroup = (groups[2] ?: groups[3] ?: groups[4])!!
-            val operandStr = operandGroup.value
-
-            val matchGroup = groups[1]!!
-            val matchStr = matchGroup.value
-
-            OperatorMatch(matchStr, listOf(operandStr))
-        }
-    }),
-    LOGARITHM_BASE_10(4, 1, setOf("log"),{ operands ->
+    }, Regex("(v(($doubleNumberRegex)|($operandRegex)))"), listOf(listOf(4, 5, 6, 7))),
+    LOGARITHM_BASE_10(4, { operands ->
         if (operands.size != 1) Double.NaN
-        else kotlin.math.log10(operands.first().getValue())
-    }, { string ->
-        val pattern = "(log((\\d+)|(~~\\d+~~)))".toRegex()
-        val matchResult = pattern.find(string)
-        if(matchResult == null) OperatorMatch.notFound()
-        else {
-            val groups = matchResult.groups
-            val operandGroup = (groups[2] ?: groups[3] ?: groups[4])!!
-            val operandStr = operandGroup.value
-
-            val matchGroup = groups[1]!!
-            val matchStr = matchGroup.value
-
-            OperatorMatch(matchStr, listOf(operandStr))
-        }
-    }),
-    LOGARITHM_BASE_E(4, 1, setOf("ln"),{ operands ->
+        else log10(operands.first().getValue())
+    }, Regex("(log(($doubleNumberRegex)|($operandRegex)))"), listOf(listOf(4, 5, 6, 7))),
+    LOGARITHM_BASE_E(4, { operands ->
         if (operands.size != 1) Double.NaN
-        else kotlin.math.ln(operands.first().getValue())
-    }, { string ->
-        val pattern = "(ln((\\d+)|(~~\\d+~~)))".toRegex()
-        val matchResult = pattern.find(string)
-        if(matchResult == null) OperatorMatch.notFound()
-        else {
-            val groups = matchResult.groups
-            val operandGroup = (groups[2] ?: groups[3] ?: groups[4])!!
-            val operandStr = operandGroup.value
-
-            val matchGroup = groups[1]!!
-            val matchStr = matchGroup.value
-
-            OperatorMatch(matchStr, listOf(operandStr))
-        }
-    }),
-    SINUS(4, 1, setOf("sin"),{ operands ->
+        else ln(operands.first().getValue())
+    }, Regex("(ln(($doubleNumberRegex)|($operandRegex)))"), listOf(listOf(4, 5, 6, 7))),
+    SINUS(4, { operands ->
         if (operands.size != 1) Double.NaN
-        else kotlin.math.sin(operands.first().getValue())
-    }, { string ->
-        val pattern = "(sin((\\d+)|(~~\\d+~~)))".toRegex()
-        val matchResult = pattern.find(string)
-        if(matchResult == null) OperatorMatch.notFound()
-        else {
-            val groups = matchResult.groups
-            val operandGroup = (groups[2] ?: groups[3] ?: groups[4])!!
-            val operandStr = operandGroup.value
-
-            val matchGroup = groups[1]!!
-            val matchStr = matchGroup.value
-
-            OperatorMatch(matchStr, listOf(operandStr))
-        }
-    }),
-    COSINUS(4, 1, setOf("cos"),{ operands ->
+        else sin(operands.first().getValue())
+    }, Regex("(sin(($doubleNumberRegex)|($operandRegex)))"), listOf(listOf(4, 5, 6, 7))),
+    COSINUS(4, { operands ->
         if (operands.size != 1) Double.NaN
         else kotlin.math.cos(operands.first().getValue())
-    }, { string ->
-        val pattern = "(cos((\\d+)|(~~\\d+~~)))".toRegex()
-        val matchResult = pattern.find(string)
-        if(matchResult == null) OperatorMatch.notFound()
-        else {
-            val groups = matchResult.groups
-            val operandGroup = (groups[2] ?: groups[3] ?: groups[4])!!
-            val operandStr = operandGroup.value
-
-            val matchGroup = groups[1]!!
-            val matchStr = matchGroup.value
-
-            OperatorMatch(matchStr, listOf(operandStr))
-        }
-    }),
-    TANGENT(4, 1, setOf("tg", "tan"),{ operands ->
+    }, Regex("(cos(($doubleNumberRegex)|($operandRegex)))"), listOf(listOf(4, 5, 6, 7))),
+    TANGENT(4, { operands ->
         if (operands.size != 1) Double.NaN
         else kotlin.math.tan(operands.first().getValue())
-    }, { string ->
-        val pattern = "((tg|tan)((\\d+)|(~~\\d+~~)))".toRegex()
-        val matchResult = pattern.find(string)
-        if(matchResult == null) OperatorMatch.notFound()
-        else {
-            val groups = matchResult.groups
-            val operandGroup = (groups[3] ?: groups[4] ?: groups[5])!!
-            val operandStr = operandGroup.value
+    }, Regex("((tg|tan)(($doubleNumberRegex)|($operandRegex)))"), listOf(listOf(5, 6, 7, 8))),
+    MULTIPLY(
+        3, { operands ->
+            if (operands.size != 2) Double.NaN
+            else operands.first().getValue() * operands.last().getValue()
+        }, Regex("((($doubleNumberRegex)|($operandRegex))[*x](($doubleNumberRegex)|($operandRegex)))"),
+        listOf(listOf(4, 5, 6, 7), listOf(10, 11, 12, 13))
+    ),
+    MULTIPLY_WITHOUT_SIGN(
+        3,
 
-            val matchGroup = groups[1]!!
-            val matchStr = matchGroup.value
-
-            OperatorMatch(matchStr, listOf(operandStr))
-        }
-    }),
-    MULTIPLY(3, 2, setOf("*" , "x"),{ operands ->
-        if (operands.size != 2) Double.NaN
-        else operands.first().getValue() * operands.last().getValue()
-    }, { string ->
-        val pattern = "(((\\d+)|(~~\\d+~~))[*x]((\\d+)|(~~\\d+~~)))".toRegex()
-        val matchResult = pattern.find(string)
-        if(matchResult == null) OperatorMatch.notFound()
-        else {
-            val groups = matchResult.groups
-            val operandGroup1 = (groups[2] ?: groups[3] ?: groups[4])!!
-            val operand1Str = operandGroup1.value
-
-            val operandGroup2 = (groups[5] ?: groups[6] ?: groups[7])!!
-            val operand2Str = operandGroup2.value
-
-            val matchGroup = groups[1]!!
-            val matchStr = matchGroup.value
-
-            OperatorMatch(matchStr, listOf(operand1Str, operand2Str))
-        }
-    }),
-    MULTIPLY_WITHOUT_SIGN(3, 2, setOf(""),{ operands ->
-        if (operands.size != 2) Double.NaN
-        else operands.first().getValue() * operands.last().getValue()
-    }, { string ->
-        val pattern = "(((\\d+)(~~\\d+~~))|((~~\\d+~~)(\\d+))|((~~\\d+~~)(~~\\d+~~)))".toRegex()
-        val matchResult = pattern.find(string)
-        if(matchResult == null) OperatorMatch.notFound()
-        else {
-            val groups = matchResult.groups
-            val operandGroup1 = (groups[3] ?: groups[6] ?: groups[9])!!
-            val operand1Str = operandGroup1.value
-
-            val operandGroup2 = (groups[4] ?: groups[7] ?: groups[10])!!
-            val operand2Str = operandGroup2.value
-
-            val matchGroup = groups[1]!!
-            val matchStr = matchGroup.value
-
-            OperatorMatch(matchStr, listOf(operand1Str, operand2Str))
-        }
-    }),
-    DIVIDE(3, 2, setOf("/"), { operands ->
-        if (operands.size != 2) Double.NaN
-        else operands.first().getValue() / operands.last().getValue()
-    }, { string ->
-        val pattern = "(((\\d+)|(~~\\d+~~))/((\\d+)|(~~\\d+~~)))".toRegex()
-        val matchResult = pattern.find(string)
-        if(matchResult == null) OperatorMatch.notFound()
-        else {
-            val groups = matchResult.groups
-            val operandGroup1 = (groups[2] ?: groups[3] ?: groups[4])!!
-            val operand1Str = operandGroup1.value
-
-            val operandGroup2 = (groups[5] ?: groups[6] ?: groups[7])!!
-            val operand2Str = operandGroup2.value
-
-            val matchGroup = groups[1]!!
-            val matchStr = matchGroup.value
-
-            OperatorMatch(matchStr, listOf(operand1Str, operand2Str))
-        }
-    }),
-    MINUS(2, 2, setOf("-"),{ operands ->
-        if (operands.size != 2) Double.NaN
-        else operands.first().getValue() - operands.last().getValue()
-    }, { string ->
-        val pattern = "(((\\d+)|(~~\\d+~~))-((\\d+)|(~~\\d+~~)))".toRegex()
-        val matchResult = pattern.find(string)
-        if(matchResult == null) OperatorMatch.notFound()
-        else {
-            val groups = matchResult.groups
-            val operandGroup1 = (groups[2] ?: groups[3] ?: groups[4])!!
-            val operand1Str = operandGroup1.value
-
-            val operandGroup2 = (groups[5] ?: groups[6] ?: groups[7])!!
-            val operand2Str = operandGroup2.value
-
-            val matchGroup = groups[1]!!
-            val matchStr = matchGroup.value
-
-            OperatorMatch(matchStr, listOf(operand1Str, operand2Str))
-        }
-    }),
-    PLUS(2, 2, setOf("+"), { operands ->
-        if (operands.size != 2) Double.NaN
-        else operands.first().getValue() + operands.last().getValue()
-    }, { string ->
-        val pattern = "(((\\d+)|(~~\\d+~~))\\+((\\d+)|(~~\\d+~~)))".toRegex()
-        val matchResult = pattern.find(string)
-        if(matchResult == null) OperatorMatch.notFound()
-        else {
-            val groups = matchResult.groups
-            val operandGroup1 = (groups[2] ?: groups[3] ?: groups[4])!!
-            val operand1Str = operandGroup1.value
-
-            val operandGroup2 = (groups[5] ?: groups[6] ?: groups[7])!!
-            val operand2Str = operandGroup2.value
-
-            val matchGroup = groups[1]!!
-            val matchStr = matchGroup.value
-
-            OperatorMatch(matchStr, listOf(operand1Str, operand2Str))
-        }
-    }),
-    NUMBER_FALLBACK(1, 1, setOf("-"),{ operands ->
+        { operands ->
+            if (operands.size != 2) Double.NaN
+            else operands.first().getValue() * operands.last().getValue()
+        },
+        Regex("((($doubleNumberRegex)($operandRegex))|(($operandRegex)($doubleNumberRegex))|(($operandRegex)($operandRegex)))"),
+        listOf(listOf(4, 5, 6, 9, 15), listOf(7, 11, 12, 13, 16))
+    ),
+    DIVIDE(
+        3, { operands ->
+            if (operands.size != 2) Double.NaN
+            else operands.first().getValue() / operands.last().getValue()
+        }, Regex("((($doubleNumberRegex)|($operandRegex))/(($doubleNumberRegex)|($operandRegex)))"),
+        listOf(listOf(4, 5, 6, 7), listOf(10, 11, 12, 13))
+    ),
+    INVERSE(
+        2, { operands ->
+            if (operands.size != 1) Double.NaN
+            else (0.0 - operands.first().getValue())
+        }, Regex("(^-(($doubleNumberRegex)|($operandRegex)))"),
+        listOf(listOf(4, 5, 6, 7))
+    ),
+    MINUS(
+        2, { operands ->
+            if (operands.size != 2) Double.NaN
+            else operands.first().getValue() - operands.last().getValue()
+        }, Regex("((($doubleNumberRegex)|($operandRegex))-(($doubleNumberRegex)|($operandRegex)))"),
+        listOf(listOf(4, 5, 6, 7), listOf(10, 11, 12, 13))
+    ),
+    PLUS(
+        2, { operands ->
+            if (operands.size != 2) Double.NaN
+            else operands.first().getValue() + operands.last().getValue()
+        }, Regex("((($doubleNumberRegex)|($operandRegex))\\+(($doubleNumberRegex)|($operandRegex)))"),
+        listOf(listOf(4, 5, 6, 7), listOf(10, 11, 12, 13))
+    ),
+    NUMBER_FALLBACK(1, { operands ->
         if (operands.size != 1) Double.NaN
         else operands.first().getValue()
-    }, { string ->
-        val pattern = "((\\d+)|(~~\\d+~~))".toRegex()
-        val matchResult = pattern.find(string)
-        if(matchResult == null) OperatorMatch.notFound()
-        else {
-            val groups = matchResult.groups
-            val matchGroup = groups[1]!!
-            val matchStr = matchGroup.value
+    }, Regex("(($doubleNumberRegex)|($operandRegex))"), listOf(listOf(3, 4, 5, 6)));
 
-            OperatorMatch(matchStr, listOf(matchStr))
+
+    fun findMatch(string: String): OperatorMatch {
+        val matchResult = regex.find(string) ?: return OperatorMatch.notFound()
+
+        val groups = matchResult.groups
+
+        val operandsStrings = operandsGroupIds.map { operandGroupIds ->
+            val operandGroup = operandGroupIds.asSequence().map { id -> groups[id] }.filterNotNull().first()
+            operandGroup.value
         }
-    });
+        val matchGroup = groups[fullMatchGroupId]!!
+
+        return OperatorMatch(matchGroup.value, operandsStrings)
+    }
 
     companion object {
         val orderedByPriority = values().sortedByDescending { it.priorityGroup }
     }
-}
-
-interface Operand{
-    fun getValue(): Double
-}
-
-data class NumberOperand(
-    val number: Double
-) : Operand {
-    override fun getValue() = number
-}
-
-data class OperationOperand(
-    val operation: Operation
-): Operand{
-    override fun getValue() = operation.calculateResult()
 }

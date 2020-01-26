@@ -3,42 +3,57 @@ package sample
 object Parser {
     fun parseAndCalc(input: String): Double {
         val withoutSpaces = input.replace(" ", "").replace("_", "").replace(",", "").toLowerCase()
-        if(!bracesCountIsRight(withoutSpaces)) return Double.NaN
+        if (!bracketsCountIsRight(withoutSpaces)) return Double.NaN
 
         println("withoutSpaces: $withoutSpaces")
-        //todo replace constants
-
-        var remainedStr = withoutSpaces
-        var deepestBraces: SubString? = findDeepestBraces(remainedStr)
-
-        println("remainedStr: $remainedStr , deepestBraces: $deepestBraces")
-
         val operandById = HashMap<Int, Operand>()
+
+        val withConstantsReplaced = replaceConstants(withoutSpaces, operandById)
+        println("withConstantsReplaced: $withConstantsReplaced")
+
+
+        /**
+         * find the deepest brackets parse into operand and replace it in the string. For example:
+         * input: (1-4)+(4*4(5-6(7)))
+         * step 1: (1-4)+(4*4(5-6~~1~~))
+         * step 2: (1-4)+(4*4~~2~~)
+         * step 3: ~~3~~+(4*4~~2~~)
+         * step 4: ~~3~~+~~4~~
+         * step 5: ~~5~~
+         * step 6: exit
+         */
+
         var operandResult: Operand? = null
+        var remainedStr = withConstantsReplaced
+        var deepestBrackets: DeepestBrackets? = findDeepestBrackets(remainedStr)
 
-        while (deepestBraces != null) {
-            val withoutBraces = substringWithoutBraces(remainedStr, deepestBraces)
+        println("remainedStr: $remainedStr , deepestBraces: $deepestBrackets")
 
-            val parsed = parse(withoutBraces, operandById)
+        while (deepestBrackets != null) {
+            val withoutBrackets = substringWithoutBrackets(remainedStr, deepestBrackets)
 
-            if (deepestBraces.index == 0 && remainedStr.length == deepestBraces.length) {
+            val parsed = parseStringWithoutBrackets(withoutBrackets, operandById)
+
+            if (deepestBrackets.index == 0 && remainedStr.length == deepestBrackets.length) {
                 println("exit braces while")
                 //this is the last operation
                 operandResult = parsed
-                deepestBraces = null
+                deepestBrackets = null
             } else {
-                //replace braces by ~~123~~
-                val maxCounter = operandById.keys.max() ?: -1
-                val newCounter = maxCounter + 1
+                //replace brackets by ~~123~~
+                val index = nextIndex(operandById)
+                operandById[index] = parsed
+                val firstPart = if (deepestBrackets.index != 0) remainedStr.substring(0, deepestBrackets.index) else ""
+                val lastPart =
+                    if (deepestBrackets.index + deepestBrackets.length != remainedStr.length) remainedStr.substring(
+                        deepestBrackets.index + deepestBrackets.length,
+                        remainedStr.length
+                    ) else ""
 
-                operandById[newCounter] = parsed
-                val firstPart = if (deepestBraces.index != 0) remainedStr.substring(0, deepestBraces.index) else ""
-                val lastPart = if (deepestBraces.index + deepestBraces.length != remainedStr.length) remainedStr.substring(deepestBraces.index + deepestBraces.length, remainedStr.length) else ""
+                remainedStr = firstPart + generateOperandReplacement(index) + lastPart
+                deepestBrackets = findDeepestBrackets(remainedStr)
 
-                remainedStr = firstPart + "~~$newCounter~~" + lastPart
-                deepestBraces = findDeepestBraces(remainedStr)
-
-                println("remainedStr: $remainedStr , deepestBraces: $deepestBraces")
+                println("remainedStr: $remainedStr , deepestBraces: $deepestBrackets")
             }
         }
 
@@ -46,24 +61,43 @@ object Parser {
         return operandResult?.getValue() ?: Double.NaN
     }
 
-    fun parse(strWithoutBraces: String, operandsById: HashMap<Int, Operand>): Operand {
-        println("parse: strWithoutBraces: $strWithoutBraces , operandsById: $operandsById")
+    private fun nextIndex(operandById: HashMap<Int, Operand>): Int {
+        val maxCounter = operandById.keys.max() ?: -1
+        return maxCounter + 1
+    }
 
-        var remainedString: String = strWithoutBraces
+    private fun replaceConstants(input: String, operandById: HashMap<Int, Operand>): String {
+        var withConstantsReplaced = input
+        Constant.values().forEach { constant ->
+            if (withConstantsReplaced.contains(constant.label)) {
+                val index = nextIndex(operandById)
+                operandById[index] = constant.operand
+                withConstantsReplaced =
+                    withConstantsReplaced.replace(constant.label, generateOperandReplacement(index))
+            }
+        }
+
+        return withConstantsReplaced
+    }
+
+    private fun parseStringWithoutBrackets(input: String, operandsById: HashMap<Int, Operand>): Operand {
+        println("parse: strWithoutBraces: $input , operandsById: $operandsById")
+
+        var remainedString: String = input
         println("remainedString: $remainedString")
 
         Operator.orderedByPriority.forEach { operator: Operator ->
             println("check operator: $operator")
             var match = operator.findMatch(remainedString)
-            while(match.found) {
+            while (match.found) {
                 val operandsStrings = match.operandsStrings
                 val operands = operandsStrings.map { operandStr: String ->
                     val numOrNull = operandStr.toDoubleOrNull()
-                    if(numOrNull != null) {
+                    if (numOrNull != null) {
                         NumberOperand(numOrNull)
                     } else {
                         println("operandStr: $operandStr")
-                        val operandId =  operandStr.replace("~~", "").toInt()
+                        val operandId = operandStr.replace(REPLACED_OPERAND_MARK, "").toInt()
                         operandsById.getValue(operandId)
                     }
                 }
@@ -75,10 +109,9 @@ object Parser {
                     )
                 )
 
-                val maxCounter = operandsById.keys.max() ?: -1
-                val newCounter = maxCounter + 1
-                val operandReplacement = "~~$newCounter~~"
-                operandsById[newCounter] = newOperand
+                val index = nextIndex(operandsById)
+                val operandReplacement = generateOperandReplacement(index)
+                operandsById[index] = newOperand
 
                 remainedString = remainedString.replace(match.fullMatch, operandReplacement)
                 println("remainedString: $remainedString")
@@ -90,17 +123,17 @@ object Parser {
         println("remainedString: $remainedString")
 
         //at this moment we should see something like ~~123~~
-        val operandId = remainedString.replace("~~", "").toInt()
+        val operandId = extractOperandId(remainedString)
         return operandsById.getValue(operandId)
     }
 
-    private fun bracesCountIsRight(input: String): Boolean {
-        val open = input.count{ c-> c == '('}
-        val close = input.count{ c-> c == ')'}
+    private fun bracketsCountIsRight(input: String): Boolean {
+        val open = input.count { c -> c == '(' }
+        val close = input.count { c -> c == ')' }
         return open == close
     }
 
-    private fun findDeepestBraces(input: String): SubString {
+    private fun findDeepestBrackets(input: String): DeepestBrackets {
         var currentCount = 0
         var maxCount = 0
         var maxIndex = 0
@@ -108,7 +141,7 @@ object Parser {
 
         input.forEachIndexed { index, c ->
             if (c == '(') {
-                currentCount ++
+                currentCount++
                 if (currentCount >= maxCount) {
                     maxCount = currentCount
                     maxIndex = index
@@ -119,23 +152,23 @@ object Parser {
                 if (currentCount == maxCount) {
                     length = 1 + index - maxIndex
                 }
-                currentCount --
+                currentCount--
             }
         }
 
-        return SubString(maxIndex, length)
+        return DeepestBrackets(maxIndex, length)
     }
 
-    private fun substringWithoutBraces(input: String, deepestBraces: SubString): String {
-        return if (deepestBraces.index == 0 && input.length == deepestBraces.length && !input.startsWith("(")) {
+    private fun substringWithoutBrackets(input: String, deepestBrackets: DeepestBrackets): String {
+        return if (deepestBrackets.index == 0 && input.length == deepestBrackets.length && !input.startsWith("(")) {
             input
         } else {
-            input.substring(deepestBraces.index + 1, deepestBraces.index + deepestBraces.length - 1)
+            input.substring(deepestBrackets.index + 1, deepestBrackets.index + deepestBrackets.length - 1)
         }
     }
 }
 
-data class SubString(
+data class DeepestBrackets(
     val index: Int,
     val length: Int
 )
