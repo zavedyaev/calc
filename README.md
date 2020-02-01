@@ -5,21 +5,30 @@ It allows to make calculation fast right in your console, like:
 calc "5.4 * 3,000.02 - 5*2 + 3! - (4+5) + sin 0 - cos PI"
 ```
 
+## License
+See GNU GPLv3 [LICENSE.txt](LICENSE.txt)
+
 ## Compilation
 ### MacOS
-Make sure you have java and xcode installed.
+(tested on macOs 10.15.2 with openJDK 11)
+
+Make sure you have jdk and xcode installed.
 Run the following command in terminal `./gradlew :macosBinaries`
-After compilation you will find your executable in `/build/bin/macos/releaseExecutable`
+After compilation you will find your executable in `build/bin/macos/releaseExecutable`
 
 ### Linux
-Make sure you have java.
+(tested on ubuntu 18.04 x64 with openJDK 11)
+
+Make sure you have jdk installed.
 Run the following command in terminal `./gradlew :linuxBinaries`
-After compilation you will find your executable in `/build/bin/linux/releaseExecutable`
+After compilation you will find your executable in `build/bin/linux/releaseExecutable`
 
 ### Windows
-Make sure you have java.
-Run the following command in terminal `./gradlew :windowsBinaries`
-After compilation you will find your executable in `/build/bin/windows/releaseExecutable`
+(tested on windows 10 x64 with openJDK 11)
+
+Make sure you have jdk installed.
+Run the following command in terminal `.\gradlew.bat :windowsBinaries`
+After compilation you will find your executable in `build\bin\windows\releaseExecutable`
 
 ## Installation
 Make sure your executable is reachable in PATH. 
