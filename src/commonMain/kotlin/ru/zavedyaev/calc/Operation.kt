@@ -85,10 +85,7 @@ enum class Operator(
         listOf(listOf(4, 5, 6, 7), listOf(10, 11, 12, 13)),
         { operands ->
             if (operands.size != 2) Double.NaN
-            else PlatformSpecificMethods.power(
-                operands.first().getValue(),
-                operands.last().getValue()
-            )
+            else operands.first().getValue().pow(operands.last().getValue())
         }
     ),
     SQUARE_ROOT(
@@ -252,8 +249,4 @@ enum class OperatorsGroup(val priority: Int, val operators: List<Operator>, val 
     companion object {
         val orderedByPriority = values().sortedByDescending { it.priority }
     }
-}
-
-expect object PlatformSpecificMethods {
-    fun power(x: Double, y: Double): Double
 }
