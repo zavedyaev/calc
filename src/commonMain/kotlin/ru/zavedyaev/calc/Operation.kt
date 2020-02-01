@@ -22,7 +22,7 @@ data class NumberOperand(
 data class OperationOperand(
     val operation: Operation
 ) : Operand {
-    override fun getValue() = operation.calculateResult()
+    override fun getValue() = operation.calculateResult() //todo cache result
 }
 
 enum class Constant(val label: String, val operand: Operand) {
@@ -252,4 +252,8 @@ enum class OperatorsGroup(val priority: Int, val operators: List<Operator>, val 
     companion object {
         val orderedByPriority = values().sortedByDescending { it.priority }
     }
+}
+
+expect object PlatformSpecificMethods {
+    fun power(x: Double, y: Double): Double
 }

@@ -1,9 +1,11 @@
 package ru.zavedyaev.calc
 
-object Parser {
-    fun parseAndCalc(input: String): Double {
+object ExpressionParser {
+    fun parse(input: String): Operand {
         val withoutSpaces = input.replace(" ", "").replace("_", "").replace(",", "").toLowerCase()
-        if (!bracketsCountIsRight(withoutSpaces)) return Double.NaN
+        if (!bracketsCountIsRight(withoutSpaces)) return NumberOperand(
+            Double.NaN
+        )
 
         val operandById = HashMap<Int, Operand>()
 
@@ -28,10 +30,16 @@ object Parser {
 
         while (deepestBrackets != null) {
             val withoutBrackets =
-                substringWithoutBrackets(remainedStr, deepestBrackets)
+                substringWithoutBrackets(
+                    remainedStr,
+                    deepestBrackets
+                )
 
             val parsed =
-                parseStringWithoutBrackets(withoutBrackets, operandById)
+                parseStringWithoutBrackets(
+                    withoutBrackets,
+                    operandById
+                )
 
             if (deepestBrackets.index == 0 && remainedStr.length == deepestBrackets.length) {
                 //this is the last operation
@@ -52,7 +60,7 @@ object Parser {
                 deepestBrackets = findDeepestBrackets(remainedStr)
             }
         }
-        return operandResult?.getValue() ?: Double.NaN
+        return operandResult ?: NumberOperand(Double.NaN)
     }
 
     private fun nextIndex(operandById: HashMap<Int, Operand>): Int {
