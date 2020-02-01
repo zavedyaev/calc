@@ -29,6 +29,16 @@ kotlin {
             }
         }
     }
+    mingwX64("windows") {
+        binaries {
+            executable {
+                // Change to specify fully qualified name of your application's entry point:
+                entryPoint = 'ru.zavedyaev.calc.main'
+                // Specify command-line arguments, if necessary:
+                runTask?.args('')
+            }
+        }
+    }
     sourceSets {
         // Note: To enable common source sets please comment out 'kotlin.import.noCommonSourceSets' property
         // in gradle.properties file and re-import your project in IDE.
@@ -46,6 +56,12 @@ kotlin {
             dependsOn commonMain
         }
         linuxTest {
+            dependsOn commonTest
+        }
+        windowsMain {
+            dependsOn commonMain
+        }
+        windowsTest {
             dependsOn commonTest
         }
     }

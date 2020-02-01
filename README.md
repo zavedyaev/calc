@@ -16,6 +16,11 @@ Make sure you have java.
 Run the following command in terminal `./gradlew :linuxBinaries`
 After compilation you will find your executable in `/build/bin/linux/releaseExecutable`
 
+### Windows
+Make sure you have java.
+Run the following command in terminal `./gradlew :windowsBinaries`
+After compilation you will find your executable in `/build/bin/windows/releaseExecutable`
+
 ## Installation
 Make sure your executable is reachable in PATH. 
 In case it is not you have 2 choices:
